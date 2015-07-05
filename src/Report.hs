@@ -6,7 +6,7 @@ import qualified Data.Aeson as Json
 import qualified Data.ByteString.Lazy.Char8 as BS
 import GHC.IO.Handle (hIsTerminalDevice)
 import System.Exit (exitFailure)
-import System.IO (hFlush, hPutStr, hPutStrLn, stderr, stdout)
+import System.IO (hFlush, hPutStr, hPutStrLn, stderr)
 
 import qualified Elm.Compiler as Compiler
 import qualified Elm.Package.Name as Pkg
@@ -32,7 +32,7 @@ thread :: Type -> Bool -> Chan.Chan Message -> PackageID -> Int -> IO ()
 thread reportType warn messageChan rootPkg totalTasks =
   case reportType of
     Normal ->
-        do  isTerminal <- hIsTerminalDevice stdout
+        do  isTerminal <- hIsTerminalDevice stderr
             normalLoop isTerminal warn messageChan rootPkg totalTasks 0 0
 
     Json ->
@@ -84,24 +84,24 @@ normalLoop isTerminal warn messageChan rootPkg total successes failures =
 
   in
   do  when isTerminal $
-          do  hPutStr stdout (renderProgressBar successes failures total)
-              hFlush stdout
+          do  hPutStr stderr (renderProgressBar successes failures total)
+              hFlush stderr
 
       update <- Chan.readChan messageChan
 
       when isTerminal $
-          hPutStr stdout clearProgressBar
+          hPutStr stderr clearProgressBar
 
       case update of
         Complete _moduleID ->
             go (successes + 1) failures
 
         Close ->
-            do  hPutStrLn stdout (closeMessage failures total)
+            do  hPutStrLn stderr (closeMessage failures total)
                 when (failures > 0) exitFailure
 
         Error (ModuleID _ pkg) dealiaser path source errors ->
-            do  hFlush stdout
+            do  hFlush stderr
 
                 errors
                   |> mapM_ (put Compiler.printError Compiler.errorToString dealiaser path source)
@@ -113,7 +113,7 @@ normalLoop isTerminal warn messageChan rootPkg total successes failures =
             if not warn then
               go successes failures
             else
-              do  hFlush stdout
+              do  hFlush stderr
 
                   warnings
                     |> mapM_ (put Compiler.printWarning Compiler.warningToString dealiaser path source)
